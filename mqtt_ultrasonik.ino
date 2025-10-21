@@ -47,6 +47,7 @@ PubSubClient  client(espClient);
 // ----- Variabel -----
 long  duration = 0;
 float distance = 0;
+int treshold_tinggi= 20;
 
 // ====== Struktur data hasil parse ======
 struct ZoneDetail {
@@ -218,7 +219,7 @@ void setup() {
 
 // ====== Loop timing ======
 unsigned long lastMeasureMs = 0;
-const unsigned long MEASURE_MS = 1000;
+const unsigned long MEASURE_MS = 10000;
 
 // =====================
 // Loop Utama
@@ -276,38 +277,52 @@ void loop() {
       Serial.println(indicatorCfg.block_id_indicator);
       Serial.println(distance);
       //if (distance )
-      int occupied = (distance >= 0 && distance < 20.0); // <20 cm = TERISI
-
-      if (occupied==1) {
-        Serial.println(F("MERAH ON | TERISI"));
-        digitalWrite(MERAH, LOW);   // RED ON
-        digitalWrite(HIJAU, HIGH);    // GREEN OFF
-      } else {
-        Serial.println(F("HIJAU ON | KOSONG"));
-        digitalWrite(MERAH, HIGH);    // RED OFF
-        digitalWrite(HIJAU, LOW);   // GREEN ON
-      }
 
 
+      int occupied = (distance >= 0 && distance < treshold_tinggi); // <20 cm = TERISI
+      
        // Build JSON payload
       StaticJsonDocument<256> doc;
       doc["zone_id"]    = indicatorCfg.zone_indicator;
       doc["block_id"]   = indicatorCfg.block_id_indicator;
       doc["state"]      = occupied;
+      doc["ip_address"] = STATIC_IP.toString();;
+
 
       char buf[256];
       size_t n = serializeJson(doc, buf, sizeof(buf));
-      // if (n < sizeof(buf)) buf[n] = '\0';
-      //   Serial.println(buf);
 
-      boolean ok = client.publish(
+      if (occupied==1) {
+        Serial.println(F("MERAH ON | TERISI"));
+        digitalWrite(MERAH, LOW);   // RED ON
+        digitalWrite(HIJAU, HIGH);    // GREEN OFF
+        boolean ok = client.publish(
         topic_published,                 // sudah const char*, tidak perlu .c_str()
         (const uint8_t*)buf,             // cast payload ke uint8_t*
         (unsigned int)n,                 // length
         false                            // retained
-      );
+        );
 
-      Serial.println(ok ? "Published telemetry" : "Publish failed");
+        Serial.println(ok ? "Published telemetry" : "Publish failed");
+      } else {
+        Serial.println(F("HIJAU ON | KOSONG"));
+        digitalWrite(MERAH, HIGH);    // RED OFF
+        digitalWrite(HIJAU, LOW);   // GREEN ON
+        boolean ok = client.publish(
+        topic_published,                 // sudah const char*, tidak perlu .c_str()
+        (const uint8_t*)buf,             // cast payload ke uint8_t*
+        (unsigned int)n,                 // length
+        false                            // retained
+        );
+
+        Serial.println(ok ? "Published telemetry" : "Publish failed");
+      }
+
+
+      // if (n < sizeof(buf)) buf[n] = '\0';
+      //   Serial.println(buf);
+
+
 
         // QoS 1 + retain=false
         // boolean ok = mqtt.publish(TOPIC_PUB, buf, n, false);
